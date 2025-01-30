@@ -2,6 +2,7 @@ import time
 import copy
 import math
 import threading
+import random
 
 
 def initialize_board():
@@ -94,7 +95,36 @@ def apply_move(board, row, col, player):
                 board[fr][fc] = player
 
 
-def evaluate_board(board, player):
+def evaluate_advanced(board, player):
+    """
+    Improved heuristic: piece difference + corner control + mobility.
+    - Pieces: Basic score (counts pieces)
+    - Corners: Weight given to corner ownership
+    - Mobility: Number of available moves
+    """
+    opponent = "B" if player == "W" else "W"
+
+    # Piece Count
+    player_pieces = sum(row.count(player) for row in board)
+    opponent_pieces = sum(row.count(opponent) for row in board)
+    piece_score = player_pieces - opponent_pieces
+
+    # Corner Control (Corners are very strong positions)
+    corners = [(0, 0), (0, 7), (7, 0), (7, 7)]
+    player_corners = sum(1 for r, c in corners if board[r][c] == player)
+    opponent_corners = sum(1 for r, c in corners if board[r][c] == opponent)
+    corner_score = (player_corners - opponent_corners) * 5  # Weighted higher
+
+    # Mobility (How many moves are available)
+    player_moves = len(get_valid_moves(board, player))
+    opponent_moves = len(get_valid_moves(board, opponent))
+    mobility_score = (player_moves - opponent_moves) * 2  # Moderate weight
+
+    # Final evaluation with weights
+    return piece_score + corner_score + mobility_score
+
+
+def evaluate_piece_count(board, player):
     """
     Evaluate the board by counting the difference in the number of disks.
     Has the current game board and the player's color as input.
@@ -182,6 +212,14 @@ def minimax(
         return min_eval, best_move
 
 
+def random_move(board, player):
+    """
+    Selects a random valid move for the player.
+    """
+    valid_moves = get_valid_moves(board, player)
+    return random.choice(valid_moves) if valid_moves else None
+
+
 def computer_move(board, player, time_limit, eval_fun):
     """
     Computer move using minimax algorithm with a time limit.
@@ -204,30 +242,79 @@ def computer_move(board, player, time_limit, eval_fun):
     return best_move
 
 
+def choose_player_type(player_name):
+    """
+    Asks the user to choose the type of player: human, minimax, or random.
+    """
+    while True:
+        player_type = (
+            input(f"Choose {player_name} type (human/minimax/random): ").strip().lower()
+        )
+        if player_type in {"human", "minimax", "random"}:
+            return player_type
+        print("Invalid input. Please enter 'human', 'minimax', or 'random'.")
+
+
+def choose_time_limit():
+    """
+    Asks the user to input a time limit for the Minimax AI.
+    """
+    while True:
+        try:
+            time_limit = float(input("Enter time limit for Minimax AI (in seconds): "))
+            return time_limit
+        except ValueError:
+            print("Invalid input. Please enter a number.")
+
+
+def choose_evaluation_function():
+    """
+    Asks the user to choose an evaluation function for the Minimax AI.
+    """
+    eval_functions = {"1": evaluate_piece_count, "2": evaluate_advanced}
+
+    print("Choose evaluation function for Minimax:")
+    print("1: Simple Piece Count")
+    print("2: Advanced Heuristic (Piece Count + Corner Control + Mobility)")
+
+    while True:
+        choice = input("Enter 1 or 2: ").strip()
+        if choice in eval_functions:
+            return eval_functions[choice]
+        print("Invalid input. Please enter '1' or '2'.")
+
+
 def play_game():
     """
-    Main function to play the game. Handles game flow, user input, and turns.
+    Interactive version of Othello that allows players to choose AI types, time limits,
+    and evaluation functions for Minimax AI.
     """
-
     board = initialize_board()
     print("Welcome to Othello!")
-    # Let the user choose their color
-    human_player = None
-    while human_player not in {"B", "W"}:
-        human_player = input("Choose your color (B for dark, W for light): ").upper()
-    computer_player = "B" if human_player == "W" else "W"
 
-    # Set a time limit for the computer's response
-    time_limit = None
-    while not time_limit:
-        try:
-            time_limit = float(
-                input("Enter time limit for computer's move (in seconds): ")
-            )
-        except ValueError:
-            print("Please enter a valid number.")
+    # Let the user select player types
+    player1_type = choose_player_type("Player 1 (Black)")
+    player2_type = choose_player_type("Player 2 (White)")
 
-    current_player = "B"  # Dark always starts
+    # Set evaluation functions and time limits for Minimax
+    eval_fn_p1 = None
+    eval_fn_p2 = None
+    time_limit_p1 = None
+    time_limit_p2 = None
+
+    if player1_type == "minimax":
+        print("Selecting for player 1, Minimax AI.")
+        time_limit_p1 = choose_time_limit()
+        eval_fn_p1 = choose_evaluation_function()
+
+    if player2_type == "minimax":
+        print("Selecting for player 2, Minimax AI.")
+        time_limit_p2 = choose_time_limit()
+        eval_fn_p2 = choose_evaluation_function()
+
+    current_player = "B"  # Black always starts
+    player1 = "B"
+    player2 = "W"
 
     while True:
         print_board(board)
@@ -235,29 +322,37 @@ def play_game():
 
         if not valid_moves:
             print(f"No valid moves for {current_player}. Passing turn.")
-            current_player = (
-                computer_player if current_player == human_player else human_player
-            )
+            current_player = player2 if current_player == player1 else player1
             if not get_valid_moves(board, current_player):
-                # Game over: calculate and display scores
                 print("No moves for either player. Game over!")
-                human_score = sum(row.count(human_player) for row in board)
-                computer_score = sum(row.count(computer_player) for row in board)
+                player1_score = sum(row.count(player1) for row in board)
+                player2_score = sum(row.count(player2) for row in board)
                 print(
-                    f"Final score - {human_player}: {human_score}, {computer_player}: {computer_score}"
+                    f"Final score - {player1}: {player1_score}, {player2}: {player2_score}"
                 )
-                if human_score > computer_score:
-                    print(f"{human_player} wins!")
-                elif human_score < computer_score:
-                    print(f"{computer_player} wins!")
+                if player1_score > player2_score:
+                    print(f"{player1} wins!")
+                elif player1_score < player2_score:
+                    print(f"{player2} wins!")
                 else:
                     print("It's a draw!")
                 break
             continue
 
         print(f"{current_player}'s turn. Valid moves: {valid_moves}")
-        if current_player == human_player:
-            # Human's turn
+
+        # Determine player type
+        if current_player == player1:
+            player_type = player1_type
+            eval_fn = eval_fn_p1
+            time_limit = time_limit_p1
+        else:
+            player_type = player2_type
+            eval_fn = eval_fn_p2
+            time_limit = time_limit_p2
+
+        # Player makes a move based on their type
+        if player_type == "human":
             move = None
             while move not in valid_moves:
                 try:
@@ -267,17 +362,22 @@ def play_game():
                     )
                     move = (row, col)
                 except ValueError:
-                    pass
-        else:  # Computer's turn
-            print("Computer is thinking...")
-            move = computer_move(board, current_player, time_limit, evaluate_board)
-            print(f"Computer chooses move: {move}")
+                    print(
+                        "Invalid move. Enter row and column as two numbers separated by space."
+                    )
+        elif player_type == "minimax":
+            print("Minimax AI is thinking...")
+            move = computer_move(board, current_player, time_limit, eval_fn)
+            print(f"Minimax AI chooses move: {move}")
+            print("Evaluation score:", eval_fn(board, current_player))
+        elif player_type == "random":
+            print("Random AI is making a move...")
+            move = random_move(board, current_player)
+            print(f"Random AI chooses move: {move}")
 
         if move:
             apply_move(board, move[0], move[1], current_player)
-            current_player = (
-                computer_player if current_player == human_player else human_player
-            )
+            current_player = player2 if current_player == player1 else player1
 
 
 if __name__ == "__main__":
