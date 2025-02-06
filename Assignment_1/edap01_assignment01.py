@@ -4,6 +4,9 @@ import math
 import threading
 import random
 
+## Solution for the first assignment in the course Artificial Intelligence (EDAP01) at LTH.
+## Authors are Aron Somi and Moritz Windsberger. Parts of the code is written by generative AI (mainly the play_game() function).
+
 
 def initialize_board():
     board = [["." for _ in range(8)] for _ in range(8)]
