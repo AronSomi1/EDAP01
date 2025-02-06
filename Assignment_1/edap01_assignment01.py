@@ -6,11 +6,6 @@ import random
 
 
 def initialize_board():
-    """
-    Initialize playing board with the starting position.
-    Function returns the game board.
-    """
-
     board = [["." for _ in range(8)] for _ in range(8)]
     board[3][3] = "W"
     board[4][4] = "W"
@@ -20,39 +15,32 @@ def initialize_board():
 
 
 def print_board(board):
-    """
-    Function prints the current state of the game board and has the board as input.
-    """
 
-    print("  " + " ".join(map(str, range(8))))  # Print column numbers
-    for i, row in enumerate(board):  # Print row numbers and the row itself
+    print("  " + " ".join(map(str, range(8))))
+    for i, row in enumerate(board):
         print(f"{i} " + " ".join(row))
 
 
 def is_valid_move(board, row, col, player):
-    """
-    Checks if a move is valid for the current player. Has the current game board,
-    coordinates of the move and the current player's color as input
-
-    """
-
-    if board[row][col] != ".":  # Check if the cell is already occupied
+    # Looks at the adjecent squares in each direction, an first finds an
+    # opponent disk, then checks if there is a player disk in the same direction
+    if board[row][col] != ".":
         return False
-    opponent = "B" if player == "W" else "W"  # Determine the opponent's color
-    # All 8 possible directions to check for valid moves
+    opponent = "B" if player == "W" else "W"
+
     directions = [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (-1, 1), (1, -1), (1, 1)]
 
     for dr, dc in directions:
         r, c = row + dr, col + dc
         found_opponent = False
         while 0 <= r < 8 and 0 <= c < 8:
-            if board[r][c] == opponent:  # Opponent's disk in this direction
+            if board[r][c] == opponent:
                 found_opponent = True
             elif board[r][c] == player:
                 if found_opponent:
-                    return True  # Valid move
+                    return True
                 break
-            else:  # Empty cell or end of the board
+            else:
                 break
             r += dr
             c += dc
@@ -60,48 +48,34 @@ def is_valid_move(board, row, col, player):
 
 
 def get_valid_moves(board, player):
-    """
-    Finds all valid moves for the current player
-    Has the current game board and the player's color as input.
-    Returns a list of tuples representing valid moves.
-    """
-
+    ##Returns all the possible moves the player can make
     return [
         (r, c) for r in range(8) for c in range(8) if is_valid_move(board, r, c, player)
     ]
 
 
 def apply_move(board, row, col, player):
-    """
-    Applies a move to the game board and flips the appropriate disks.
-    Has the board, coordinates of the move and the player's color as imput.
-    """
-
+    # Actually changes the game state.
     opponent = "B" if player == "W" else "W"
-    # All 8 possible direction to flip disks
     directions = [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (-1, 1), (1, -1), (1, 1)]
 
-    board[row][col] = player  # Place the player's disk
+    board[row][col] = player
     for dr, dc in directions:
         r, c = row + dr, col + dc
         disks_to_flip = []
         while 0 <= r < 8 and 0 <= c < 8 and board[r][c] == opponent:
-            disks_to_flip.append((r, c))  # Collect opponent's disks to flip
+            disks_to_flip.append((r, c))
             r += dr
             c += dc
         if 0 <= r < 8 and 0 <= c < 8 and board[r][c] == player:
-            # If a player's disk is encountered, flip the collected disks
+
             for fr, fc in disks_to_flip:
                 board[fr][fc] = player
 
 
 def evaluate_advanced(board, player):
-    """
-    Improved heuristic: piece difference + corner control + mobility.
-    - Pieces: Basic score (counts pieces)
-    - Corners: Weight given to corner ownership
-    - Mobility: Number of available moves
-    """
+    # The better evaulation function used for the more advance AI,
+    # it takes into account the number of pieces, the corners and the mobility of the player.
     opponent = "B" if player == "W" else "W"
 
     # Piece Count
@@ -109,28 +83,21 @@ def evaluate_advanced(board, player):
     opponent_pieces = sum(row.count(opponent) for row in board)
     piece_score = player_pieces - opponent_pieces
 
-    # Corner Control (Corners are very strong positions)
+    # Corner Control
     corners = [(0, 0), (0, 7), (7, 0), (7, 7)]
     player_corners = sum(1 for r, c in corners if board[r][c] == player)
     opponent_corners = sum(1 for r, c in corners if board[r][c] == opponent)
-    corner_score = (player_corners - opponent_corners) * 5  # Weighted higher
+    corner_score = (player_corners - opponent_corners) * 5
 
-    # Mobility (How many moves are available)
+    # Mobility
     player_moves = len(get_valid_moves(board, player))
     opponent_moves = len(get_valid_moves(board, opponent))
-    mobility_score = (player_moves - opponent_moves) * 2  # Moderate weight
+    mobility_score = (player_moves - opponent_moves) * 2
 
-    # Final evaluation with weights
     return piece_score + corner_score + mobility_score
 
 
 def evaluate_piece_count(board, player):
-    """
-    Evaluate the board by counting the difference in the number of disks.
-    Has the current game board and the player's color as input.
-    Returns an integer representing the evaluation score for the player.
-    """
-
     opponent = "B" if player == "W" else "W"
     player_score = sum(row.count(player) for row in board)
     opponent_score = sum(row.count(opponent) for row in board)
@@ -148,18 +115,10 @@ def minimax(
     time_limit,
     eval_fun,
 ):
-    """
-    Implements the minimax algorithm with alpha-beta pruning and time-limiting.
-    Has the current game board, max. depht of the search, alpha/beta pruning bounds,
-    maximizing_player (true if maximizing player's turn, else false), current player's color,
-    starting time when the move calculation started and time limit as inputs.
-    Returns a touple of evaluation score and best move.
-    """
-
+    # The minimax algorithm.
     opponent = "B" if player == "W" else "W"
     valid_moves = get_valid_moves(board, player if maximizing_player else opponent)
 
-    # Base case: return evaluation score at max depth, no moves, or timeout
     if depth == 0 or not valid_moves or time.time() - start_time > time_limit:
         return eval_fun(board, player), None
 
@@ -213,19 +172,12 @@ def minimax(
 
 
 def random_move(board, player):
-    """
-    Selects a random valid move for the player.
-    """
+
     valid_moves = get_valid_moves(board, player)
     return random.choice(valid_moves) if valid_moves else None
 
 
 def computer_move(board, player, time_limit, eval_fun):
-    """
-    Computer move using minimax algorithm with a time limit.
-    Has current game board, the computer's color and maximum time limit as inputs.
-    Returns a touple representing the best move.
-    """
 
     start_time = time.time()
     _, best_move = minimax(
@@ -243,9 +195,7 @@ def computer_move(board, player, time_limit, eval_fun):
 
 
 def choose_player_type(player_name):
-    """
-    Asks the user to choose the type of player: human, minimax, or random.
-    """
+
     while True:
         player_type = (
             input(f"Choose {player_name} type (human/minimax/random): ").strip().lower()
@@ -256,9 +206,7 @@ def choose_player_type(player_name):
 
 
 def choose_time_limit():
-    """
-    Asks the user to input a time limit for the Minimax AI.
-    """
+
     while True:
         try:
             time_limit = float(input("Enter time limit for Minimax AI (in seconds): "))
@@ -268,9 +216,7 @@ def choose_time_limit():
 
 
 def choose_evaluation_function():
-    """
-    Asks the user to choose an evaluation function for the Minimax AI.
-    """
+
     eval_functions = {"1": evaluate_piece_count, "2": evaluate_advanced}
 
     print("Choose evaluation function for Minimax:")
@@ -285,10 +231,7 @@ def choose_evaluation_function():
 
 
 def play_game():
-    """
-    Interactive version of Othello that allows players to choose AI types, time limits,
-    and evaluation functions for Minimax AI.
-    """
+
     board = initialize_board()
     print("Welcome to Othello!")
 
