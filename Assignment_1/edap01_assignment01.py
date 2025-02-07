@@ -51,7 +51,7 @@ def is_valid_move(board, row, col, player):
 
 
 def get_valid_moves(board, player):
-    ##Returns all the possible moves the player can make
+    # Returns all the possible moves the player can make
     return [
         (r, c) for r in range(8) for c in range(8) if is_valid_move(board, r, c, player)
     ]
